@@ -2,6 +2,18 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,jupyternotebooks
 
+# Manualy pointed files or folders
+saved_models
+__pycache__
+deprecated.py
+precomp_spx.py
+img_notebooks.ipynb
+my_notebooks.ipynb
+links.txt
+.ipynb_checkpoints
+README.md
+rsync-exclude.txt
+
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
 # website: http://jupyter.org/

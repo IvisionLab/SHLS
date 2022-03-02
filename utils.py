@@ -14,7 +14,7 @@ def launch_cuda(model=None):
     if torch.cuda.is_available():
         device = torch.device("cuda")
         num_devices = torch.cuda.device_count()
-        print('CUDA version {} ({} devices availabel).'.format(torch.version.cuda, num_devices))
+        print('CUDA version {} [{} device(s) available].'.format(torch.version.cuda, num_devices))
         if model is not None:
             model = model.to(device)
             print('Model sent to cuda.')
@@ -61,7 +61,7 @@ def load_checkpoint(config, model, optimizer=None):
     state.update(checkpoint['model'])
     # load the new state dict
     model.load_state_dict(state)
-    print('Loaded checkpoing at {}'.format(load_name))
+    print('Loaded checkpoing at: {}'.format(load_name))
     # load optimizer state dict
     if optimizer is not None:
         if 'optimizer' in checkpoint.keys():

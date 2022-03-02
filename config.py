@@ -111,7 +111,7 @@ class ConfigForMSRA_B_sdumont(DefaultConfig):
     def __init__(self):
         DefaultConfig.__init__(self)
 
-        self.model = 'my_net'
+        self.model = 'my_net_part2'
         self.save_model_path = './saved_models/MSRA_B/'
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         #self.save_model_path = self.save_model_path + self.current_time
@@ -149,8 +149,55 @@ class ConfigForMSRA_B_sdumont(DefaultConfig):
             self.msra_masks.append(os.path.join(self.msra_root, 'saliency', self.saliency_maps[m]))            
         
         # Superpixels
-        self.pre_computed_spx = False
-        self.spx_dir = None
+        self.pre_computed_spx = True
+        self.spx_dir = os.path.join(self.msra_root, 'superpixels', 'isec_masks')
+        
+class ConfigForMSRA_B_pinha(DefaultConfig):
+    def __init__(self):
+        DefaultConfig.__init__(self)
+
+        self.model = 'my_net_pinha'
+        self.save_model_path = './saved_models/MSRA_B/'
+        self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
+        #self.save_model_path = self.save_model_path + self.current_time
+
+        self.epoch = 200
+        self.train_batch_size = 4
+        self.test_batch_size = 4 
+        self.train_batch_size *= self.num_devices
+        self.test_batch_size *= self.num_devices
+        
+        self.train_img_size=(256,256) #(384,384)
+        self.val_img_size=(256,256) #(384,384)
+        
+        self.classifier_learning_rate *= self.train_batch_size/32 # 32 is the batch_size=4 * 8 gpus in sdumont
+        
+        self.num_workers = 16
+        self.test_times = 2000
+        self.save_model_times = 1000000000
+        
+        # Root folder of datasets
+        self.data_root = os.path.abspath('../my_datasets')
+        
+        # MSRA paths
+        self.msra_root = os.path.join(self.data_root, 'MSRA', 'MSRA_B')
+        #self.msra_masks = os.path.join(self.msra_root, 'saliency')
+        self.msra_images = os.path.join(self.msra_root, 'images')
+        
+        self.msra_train_annotation = os.path.join(self.msra_root, 'train_4.5k.txt')
+        self.msra_val_annotation = os.path.join(self.msra_root, 'val_0.5k.txt')
+        #self.msra_val_annotation = os.path.join(self.msra_root, 'val_20.txt')
+        
+        self.saliency_maps = ['03_mc', '04_hs', '05_dsr', '06_rbd', 'jeff_all']
+        self.to_use_saliency_maps = [4]
+        
+        self.msra_masks = []
+        for m in self.to_use_saliency_maps:
+            self.msra_masks.append(os.path.join(self.msra_root, 'saliency', self.saliency_maps[m]))            
+        
+        # Superpixels
+        self.pre_computed_spx = True
+        self.spx_dir = os.path.join(self.msra_root, 'superpixels', 'isec_masks')
 
 
 def init(args):
@@ -161,6 +208,8 @@ def init(args):
         config = ConfigForMSRA_B()
     elif args.dataset.lower() == 'msra_b_sdumont':
         config = ConfigForMSRA_B_sdumont()
+    elif args.dataset.lower() == 'msra_b_pinha':
+        config = ConfigForMSRA_B_pinha()
 
     # append args info into the config
     for k, v in vars(args).items():

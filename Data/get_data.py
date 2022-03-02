@@ -83,11 +83,6 @@ class MSRA_B_dataset(data.Dataset):
         self.mask_dir = config.msra_masks        
         self.pre_computed_spx = config.pre_computed_spx
         
-        if not self.pre_computed_spx:
-            self.isec = isec(nit=4)
-        else:
-            self.spx_dir = config.spx_dir
-        
         if self.imset == 'train':
             self.img_size = config.train_img_size
             split_f = config.msra_train_annotation
@@ -96,6 +91,12 @@ class MSRA_B_dataset(data.Dataset):
             split_f = config.msra_val_annotation
         else:
             raise RuntimeError('Dataset split \'{}\' not found'.format(self.imset))
+        
+        if not self.pre_computed_spx:
+            self.isec = isec(nit=4)
+        else:
+            self.spx_dir = os.path.join(config.spx_dir,
+                                        str(self.img_size[0])+'x'+str(self.img_size[1]))
         
         with open(split_f, "r") as f:
             self.img_list = [x.strip()[:-4] for x in f.readlines()]
@@ -114,7 +115,6 @@ class MSRA_B_dataset(data.Dataset):
         for i in range(1,len(masks)):
             mask = np.concatenate((mask, masks[i][:, :, None]), axis=2)
         mask = (np.sum(mask, axis=(2)) > 0).astype(np.uint8)     
-           
         
         img = cv2.resize(np.copy(img), self.img_size)
         mask = cv2.resize(np.copy(mask), self.img_size, interpolation=cv2.INTER_NEAREST)
@@ -129,9 +129,9 @@ class MSRA_B_dataset(data.Dataset):
             spx, _ = self.isec.segment(img)
         else:
             spx_path = os.path.join(self.spx_dir, self.img_list[idx] + ".png")
-            spx = np.array(Image.open(spx_path).convert('P'), dtype=np.uint8)
+            spx = np.array(Image.open(spx_path))
             
-        
+            
         img = torch.from_numpy(img).permute(2,0,1)
         obj_label = torch.from_numpy(obj_label).unsqueeze(0)        
         spx = torch.from_numpy(spx).unsqueeze(0)
@@ -151,7 +151,7 @@ def get_data(config):
     if config.dataset.lower() == 'msra10k':
         train_loader = data.DataLoader(MSRA10K_dataset(config, imset='train'), batch_size=config.train_batch_size, 
                                        shuffle=True, num_workers=config.num_workers)
-    elif config.dataset.lower() in ['msra_b' , 'msra_b_sdumont']:
+    elif config.dataset.lower() in ['msra_b' , 'msra_b_sdumont', 'msra_b_pinha']:
         train_loader = data.DataLoader(MSRA_B_dataset(config, imset='train'), batch_size=config.train_batch_size, 
                                        shuffle=True, num_workers=config.num_workers, drop_last=config.drop_last,
                                        pin_memory=True)
@@ -165,4 +165,8 @@ def get_data(config):
 
 if __name__ == "__main__":    
     
-    print('Testing get_data.py')
+    print('Testing get_data.py')           
+    
+    
+    
+    

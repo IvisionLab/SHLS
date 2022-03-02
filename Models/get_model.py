@@ -162,21 +162,18 @@ class My_Net(nn.Module):
             return None
 
 
-
 def compute_loss(loss_fun, spx_pools, super_feat, t_per_anchor=10):
     
-    pools_sizes = [x.shape[0] for x in spx_pools]    
-    split_size = len(super_feat)
-    loss = 0    
+    batch_size = len(spx_pools)
+    loss = 0
     
-    for i in range(split_size):
-        sf_splits = torch.split(super_feat[i], pools_sizes[i::split_size])
+    for b in range(batch_size):
         
-        for n, sf in enumerate(sf_splits):     
-            indices_tuple = lmu.get_random_triplet_indices(spx_pools[i+n*split_size], t_per_anchor=t_per_anchor)        
-            loss += loss_fun(sf, spx_pools[i+n*split_size], indices_tuple)
-            
-    return loss/len(spx_pools)
+        indices_tuple = lmu.get_random_triplet_indices(spx_pools[b], t_per_anchor=t_per_anchor)
+        
+        loss += loss_fun(super_feat[b], spx_pools[b], indices_tuple)
+    
+    return loss/batch_size
 
 
 def get_model_loss(config):

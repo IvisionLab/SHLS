@@ -47,6 +47,9 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             # make super features from superpixels and embeddings
             super_feat = model.super_feat(*spx_emb)
             
+            # if necessary, ungroup and reorganize feat batches from different gpus
+            spx_pools, super_feat = ungroup_batches(spx_pools, super_feat)
+            
             # compute loss with metric learning
             loss = compute_loss(loss_function, spx_pools, super_feat, config.t_per_anchor)
 
@@ -96,10 +99,10 @@ def test(config, model, test_loader, loss_function, global_ite):
             *spx_emb, = model.spx_embedding(img, spx.float())
             super_feat = model.super_feat(*spx_emb)
             
+            spx_pools, super_feat = ungroup_batches(spx_pools, super_feat)
+            
             loss = compute_loss(loss_function, spx_pools, super_feat, config.t_per_anchor)
             test_loss.update(loss.item())
-            
-            spx_pools, super_feat = ungroup_batches(spx_pools, super_feat)
             
             for b in range(len(super_feat)):
             
