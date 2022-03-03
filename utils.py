@@ -150,10 +150,10 @@ def spx_info_map(labels):
             
     return info_map
 
-def show_intro(config, delay=0.05):
-    print('\n[{}: {}] '.format(config.model, config.experiment_name), end="", flush=True)
-    for i in range(20):
-        print('= ', end="", flush=True)
+def show_intro(config, delay=0.1, size=20):
+    print('\n[{}: {}] >\b'.format(config.model, config.experiment_name), end="", flush=True)
+    for i in range(size):
+        print('= >\b', end="", flush=True)
         time.sleep(delay)
     print('> [started]')
     
