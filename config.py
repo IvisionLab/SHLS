@@ -8,16 +8,17 @@ import torch
 
 
 class DefaultConfig(object):
-    def __init__(self):
-        self.root = './'
+    def __init__(self, exp=''):
+        
+        self.experiment_name = exp
         self.feat_extractor_backbone = 'resnet18'
-        self.save_model_path = './saved_models/'
+        self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         self.save_model_path = self.save_model_path + self.current_time
         self.epoch = 50
         
         self.loss = 'NTXentLoss'
-        self.t_per_anchor = 10 # triplets per anchor for computing loss
+        self.t_per_anchor = 50 # triplets per anchor for computing loss
         self.classifier_optimizer = 'Adam'
         self.classifier_learning_rate = 1e-4
         
@@ -39,15 +40,16 @@ class DefaultConfig(object):
         self.save_model_times = 5
         
         self.knn_neighbors = 5
-        self.knn_test_size = 0.7
+        self.knn_test_size = 0.8
 
 
 class ConfigForMSRA10K(DefaultConfig):
-    def __init__(self):
+    def __init__(self, exp=''):
         DefaultConfig.__init__(self)
 
+        self.experiment_name = exp
         self.model = 'my_net'
-        self.save_model_path = './saved_models/MSRA10K/'
+        self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         self.save_model_path = self.save_model_path + self.current_time
 
@@ -70,11 +72,12 @@ class ConfigForMSRA10K(DefaultConfig):
         self.spx_dir = None
 
 class ConfigForMSRA_B(DefaultConfig):
-    def __init__(self):
+    def __init__(self, exp=''):
         DefaultConfig.__init__(self)
 
+        self.experiment_name = exp
         self.model = 'my_net'
-        self.save_model_path = './saved_models/MSRA_B/'
+        self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         self.save_model_path = self.save_model_path + self.current_time
 
@@ -108,11 +111,12 @@ class ConfigForMSRA_B(DefaultConfig):
         self.spx_dir = None
 
 class ConfigForMSRA_B_sdumont(DefaultConfig):
-    def __init__(self):
+    def __init__(self, exp=''):
         DefaultConfig.__init__(self)
 
+        self.experiment_name = exp
         self.model = 'my_net_part2'
-        self.save_model_path = './saved_models/MSRA_B/'
+        self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         #self.save_model_path = self.save_model_path + self.current_time
 
@@ -153,11 +157,12 @@ class ConfigForMSRA_B_sdumont(DefaultConfig):
         self.spx_dir = os.path.join(self.msra_root, 'superpixels', 'isec_masks')
         
 class ConfigForMSRA_B_pinha(DefaultConfig):
-    def __init__(self):
+    def __init__(self, exp=''):
         DefaultConfig.__init__(self)
 
-        self.model = 'my_net_pinha'
-        self.save_model_path = './saved_models/MSRA_B/'
+        self.experiment_name = exp
+        self.model = 'my_net_pinha_2'
+        self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         #self.save_model_path = self.save_model_path + self.current_time
 
@@ -203,13 +208,13 @@ class ConfigForMSRA_B_pinha(DefaultConfig):
 def init(args):
     config = None
     if args.dataset.lower() == 'msra10k':
-        config = ConfigForMSRA10K()
+        config = ConfigForMSRA10K(args.exp)
     elif args.dataset.lower() == 'msra_b':
-        config = ConfigForMSRA_B()
+        config = ConfigForMSRA_B(args.exp)
     elif args.dataset.lower() == 'msra_b_sdumont':
-        config = ConfigForMSRA_B_sdumont()
+        config = ConfigForMSRA_B_sdumont(args.exp)
     elif args.dataset.lower() == 'msra_b_pinha':
-        config = ConfigForMSRA_B_pinha()
+        config = ConfigForMSRA_B_pinha(args.exp)
 
     # append args info into the config
     for k, v in vars(args).items():
@@ -217,10 +222,25 @@ def init(args):
 
     return config
 
+
+def log_config(config):    
+    if os.path.exists(config.save_model_path) is False:
+        os.makedirs(config.save_model_path)    
+    log_path = os.path.join(config.save_model_path, 
+                            config.model + '_' + config.current_time + '.log')
+    
+    with open(log_path, 'w') as f:    
+        for k, v in vars(config).items():
+            f.write('{}: {}'.format(k,v))
+            f.write('\n')
+            #print('{}: {}'.format(k,v))
+    
+
 def set_config():
     parser = argparse.ArgumentParser(description='My_Net Training') 
     #parser.add_argument("--dataset", type=str, default='MSRA10K')
     parser.add_argument("--dataset", type=str, default='MSRA_B')
+    parser.add_argument("--exp", type=str, default='')
     parser.add_argument("--resume_model_path", type=str, default='')
     parser.add_argument('--gpu_id', type=str, default='', help='gpu id')
     parser.add_argument("--data_root", type=str, default='MSRA',help='the dir of dataset')
@@ -232,7 +252,7 @@ def set_config():
     if args.gpu_id:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
     
-
     # init
     config = init(args)
+    log_config(config)
     return config

@@ -3,6 +3,7 @@
 
 import torch
 import os.path
+import time
 #import torch.nn as nn
 #import numpy as np
 
@@ -148,6 +149,14 @@ def spx_info_map(labels):
             info_map[b_idx,2][labels[b_idx,0] == n] = yy[labels[b_idx,0] == n].mean()
             
     return info_map
+
+def show_intro(config, delay=0.05):
+    print('\n[{}: {}] '.format(config.model, config.experiment_name), end="", flush=True)
+    for i in range(20):
+        print('= ', end="", flush=True)
+        time.sleep(delay)
+    print('> [started]')
+    
 
 
 class AverageMeter(object):

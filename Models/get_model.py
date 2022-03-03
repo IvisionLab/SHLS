@@ -147,19 +147,27 @@ class My_Net(nn.Module):
         
         return super_feat, num_spx
     
-    def spx_embedding(self, *args, **kwargs):
-        return self(*args, **kwargs)
+    # def spx_embedding(self, *args, **kwargs):
+    #     return self(*args, **kwargs)
     
-    def super_feat(self, *args, **kwargs):
-        return self(*args, **kwargs)
+    # def super_feat(self, *args, **kwargs):
+    #     return self(*args, **kwargs)
     
-    def forward(self, *args, **kwargs):        
-        if len(args) == 2:
-            return self.spx_emb(*args, **kwargs)
-        elif len(args) == 4:
-            return self.get_super_feat(*args, **kwargs)
-        else:
-            return None
+    # def forward(self, *args, **kwargs):        
+    #     if len(args) == 2:
+    #         return self.spx_emb(*args, **kwargs)
+    #     elif len(args) == 4:
+    #         return self.get_super_feat(*args, **kwargs)
+    #     else:
+    #         return None
+    
+    def forward(self, img, spx):
+        
+        # feature embedding by superpixel
+        *spx_emb, = self.spx_emb(img, spx)
+        
+        # make super features from superpixels and embeddings
+        return self.get_super_feat(*spx_emb)
 
 
 def compute_loss(loss_fun, spx_pools, super_feat, t_per_anchor=10):

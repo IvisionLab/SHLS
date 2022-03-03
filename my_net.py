@@ -3,17 +3,21 @@
 
 import torch
 import numpy as np
+from tqdm import tqdm
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from tensorboardX import SummaryWriter
 from config import set_config
 import Data.get_data as _Data
 import Models.get_model as _Models
 from Models.get_model import compute_loss
-from utils import launch_cuda, get_spx_pools, AverageMeter, load_checkpoint, save_model, ungroup_batches
-from tqdm import tqdm
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import train_test_split
+from utils import launch_cuda, get_spx_pools, AverageMeter 
+from utils import load_checkpoint, save_model, ungroup_batches, show_intro
+
 
 def train(config, model, train_loader, test_loader, loss_function, optimizer, lr_scheduler):
     global_ite = 0
+    writer = SummaryWriter(config.save_model_path)
     
     model = launch_cuda(model)
     loss_function = loss_function.cuda()
@@ -42,10 +46,12 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             spx_pools, _ = get_spx_pools(spx, obj_label)
             
             # feature embedding by superpixel
-            *spx_emb, = model.spx_embedding(img, spx.float())
+            #*spx_emb, = model.spx_embedding(img, spx.float())
             
             # make super features from superpixels and embeddings
-            super_feat = model.super_feat(*spx_emb)
+            #super_feat = model.super_feat(*spx_emb)
+            
+            super_feat = model(img, spx.float())
             
             # if necessary, ungroup and reorganize feat batches from different gpus
             spx_pools, super_feat = ungroup_batches(spx_pools, super_feat)
@@ -64,12 +70,16 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
 
             # test stage
             if global_ite % config.test_times == 0:
-                test(config, model, test_loader, loss_function, global_ite)
+                test(config, model, test_loader, loss_function, global_ite, writer)
             
             # save model
             if global_ite % config.save_model_times == 0:
                 model_name = '_epoch_'+str(e)+'_it_'+str(global_ite)+'.pth'
                 save_model(config, model, model_name, optimizer)
+            
+            # write the summary
+            writer.add_scalar('Train: loss_value', train_loss.val, global_ite)
+            writer.add_scalar('Train: loss_avg', train_loss.avg, global_ite)
             
             t.set_postfix_str('loss: {:^7.3f} (Avg: {:^7.3f})'.format(train_loss.val, train_loss.avg))
             t.update()
@@ -77,7 +87,7 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
         save_model(config, model, '_last.pth', optimizer)
         print("Finished epoch [{}/{}]".format(e+1,config.epoch))
 
-def test(config, model, test_loader, loss_function, global_ite):
+def test(config, model, test_loader, loss_function, global_ite, writer):
     model.eval()
     
     with torch.no_grad():
@@ -88,6 +98,7 @@ def test(config, model, test_loader, loss_function, global_ite):
         t = tqdm(test_dataiter)        
         knn = KNeighborsClassifier(n_neighbors = config.knn_neighbors)
         t.set_description("Test [it={}]".format(global_ite))
+        skipped_samples = 0
         
         for i, (img, spx, obj_label, num_obj, info) in enumerate(t):
             
@@ -96,8 +107,9 @@ def test(config, model, test_loader, loss_function, global_ite):
             obj_label = obj_label.cuda()
             
             spx_pools, _ = get_spx_pools(spx, obj_label)
-            *spx_emb, = model.spx_embedding(img, spx.float())
-            super_feat = model.super_feat(*spx_emb)
+            #*spx_emb, = model.spx_embedding(img, spx.float())
+            #super_feat = model.super_feat(*spx_emb)
+            super_feat = model(img, spx.float())
             
             spx_pools, super_feat = ungroup_batches(spx_pools, super_feat)
             
@@ -117,13 +129,17 @@ def test(config, model, test_loader, loss_function, global_ite):
                     #pred = knn.predict(x_test)            
                     knn_score.update(knn.score(x_test, y_test))
                 except:
-                    print('Knn skiped at current sample.')
+                    skipped_samples += 1
                     continue
-                
+            
+            writer.add_scalar('Test: loss_avg', test_loss.avg, global_ite + i)
+            writer.add_scalar('Test: knn_score', knn_score.avg, global_ite + i)
+            
             t.set_postfix_str('loss: {:^7.3f}, knn_score: {:^7.3f}'.format(
                 test_loss.avg, knn_score.avg))
             t.update()
     
+    print('Knn: {}/{} samples skipped at test.'.format(skipped_samples, i+1))
 
 def run(config):
     # data 
@@ -138,5 +154,6 @@ def run(config):
 
 
 if __name__ == '__main__':
-    config = set_config()
+    config = set_config()    
+    show_intro(config)    
     run(config)
