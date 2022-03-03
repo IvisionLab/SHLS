@@ -2,7 +2,7 @@
 
 Requirements:
 - pytorch
-- opencv3
+- opencv
 - tensorboardx
 - [pytorch-metric-learning](https://github.com/KevinMusgrave/pytorch-metric-learning)
 
