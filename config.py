@@ -96,8 +96,8 @@ class ConfigForMSRA_B(DefaultConfig):
         self.msra_images = os.path.join(self.msra_root, 'images')
         
         self.msra_train_annotation = os.path.join(self.msra_root, 'train_4.5k.txt')
-        #self.msra_val_annotation = os.path.join(self.msra_root, 'val_0.5k.txt')
-        self.msra_val_annotation = os.path.join(self.msra_root, 'val_20.txt')
+        self.msra_val_annotation = os.path.join(self.msra_root, 'val_0.5k.txt')
+        #self.msra_val_annotation = os.path.join(self.msra_root, 'val_20.txt')
         
         self.saliency_maps = ['03_mc', '04_hs', '05_dsr', '06_rbd', 'jeff_all']
         self.to_use_saliency_maps = [4]
@@ -107,8 +107,8 @@ class ConfigForMSRA_B(DefaultConfig):
             self.msra_masks.append(os.path.join(self.msra_root, 'saliency', self.saliency_maps[m]))            
         
         # Superpixels
-        self.pre_computed_spx = False
-        self.spx_dir = None
+        self.pre_computed_spx = True
+        self.spx_dir = os.path.join(self.msra_root, 'superpixels', 'isec_masks')
 
 class ConfigForMSRA_B_sdumont(DefaultConfig):
     def __init__(self, exp=''):
@@ -236,7 +236,7 @@ def log_config(config):
             #print('{}: {}'.format(k,v))
     
 
-def set_config():
+def set_config(jup_notebook=False):
     parser = argparse.ArgumentParser(description='My_Net Training') 
     #parser.add_argument("--dataset", type=str, default='MSRA10K')
     parser.add_argument("--dataset", type=str, default='MSRA_B')
@@ -244,8 +244,11 @@ def set_config():
     parser.add_argument("--resume_model_path", type=str, default='')
     parser.add_argument('--gpu_id', type=str, default='', help='gpu id')
     parser.add_argument("--data_root", type=str, default='MSRA',help='the dir of dataset')
-    args = parser.parse_args()
-    #args = parser.parse_args(args=[])
+    
+    if not jup_notebook:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(args=[])
 
     # select GPU
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
