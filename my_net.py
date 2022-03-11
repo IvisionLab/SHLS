@@ -17,15 +17,16 @@ from utils import load_checkpoint, save_model, ungroup_batches, show_intro
 
 def train(config, model, train_loader, test_loader, loss_function, optimizer, lr_scheduler):
     global_ite = 0
+    start_epoch = 0
     writer = SummaryWriter(config.save_model_path)
     
     model = launch_cuda(model)
     loss_function = loss_function.cuda()
         
     if config.resume_model_path:
-        model, optimizer = load_checkpoint(config, model, optimizer)
+        model, optimizer, start_epoch, global_ite = load_checkpoint(config, model, optimizer)
 
-    for e in range(config.epoch):
+    for e in range(start_epoch, config.epoch):
         train_loss = AverageMeter()
         train_dataiter = iter(train_loader)
         t = tqdm(train_dataiter)
@@ -75,7 +76,7 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             # save model
             if global_ite % config.save_model_times == 0:
                 model_name = '_epoch_'+str(e)+'_it_'+str(global_ite)+'.pth'
-                save_model(config, model, model_name, optimizer)
+                save_model(config, model, model_name, e, global_ite, optimizer)
             
             # write the summary
             writer.add_scalar('Train: loss_value', train_loss.val, global_ite)
@@ -84,7 +85,7 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             t.set_postfix_str('loss: {:^7.3f} (Avg: {:^7.3f})'.format(train_loss.val, train_loss.avg))
             t.update()
             
-        save_model(config, model, '_last.pth', optimizer)
+        save_model(config, model, '_last.pth', e, global_ite, optimizer)
         print("Finished epoch [{}/{}]".format(e+1,config.epoch))
 
 def test(config, model, test_loader, loss_function, global_ite, writer):

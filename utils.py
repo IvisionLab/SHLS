@@ -56,6 +56,9 @@ def load_checkpoint(config, model, optimizer=None):
     state = model.state_dict()
     # load entire saved model from checkpoint
     checkpoint = torch.load(load_name) # dict_keys(['epoch', 'model', 'optimizer'])
+    # set next epoch ant it to resume the training
+    start_epoch = checkpoint['epoch'] + 1
+    it = checkpoint['it']
     # filter out unnecessary keys from checkpoint
     checkpoint['model'] = {k:v for k,v in checkpoint['model'].items() if k in state}
     # overwrite entries in the existing state dict
@@ -67,11 +70,11 @@ def load_checkpoint(config, model, optimizer=None):
     if optimizer is not None:
         if 'optimizer' in checkpoint.keys():
             optimizer.load_state_dict(checkpoint['optimizer'])
-        return model, optimizer
+        return model, optimizer, start_epoch, it
     
-    return model
+    return model, start_epoch, it
 
-def save_model(config, model, model_name, optimizer=None):
+def save_model(config, model, model_name, epoch, it, optimizer=None):
     
     if os.path.exists(config.save_model_path) is False:
         os.makedirs(config.save_model_path)
@@ -79,9 +82,14 @@ def save_model(config, model, model_name, optimizer=None):
     path_ = os.path.join(config.save_model_path, config.model + model_name)
     
     if optimizer is not None:    
-        torch.save({'model': model.state_dict(), 'optimizer': optimizer.state_dict(),}, path_)
+        torch.save({'model': model.state_dict(), 
+                    'optimizer': optimizer.state_dict(),
+                    'epoch': epoch,
+                    'it': it,}, path_)
     else:
-        torch.save({'model': model.state_dict(),}, path_)
+        torch.save({'model': model.state_dict(),
+                    'epoch': epoch,
+                    'it': it,}, path_)
     
     print('Model saved in {}'.format(path_))
 
