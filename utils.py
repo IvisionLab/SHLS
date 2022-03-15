@@ -158,6 +158,32 @@ def spx_info_map(labels):
             
     return info_map
 
+def iou_metrics(obj_label, spx, pred, y_train, idx_train, idx_test):
+    train_spx = torch.zeros_like(spx)
+    test_spx = torch.zeros_like(spx)
+    
+    for n, i in enumerate(idx_train):    
+        train_spx[spx==i] = y_train[n]
+    
+    for n, i in enumerate(idx_test):    
+        test_spx[spx==i] = pred[n]
+    
+    i = torch.count_nonzero(obj_label[train_spx==0] == test_spx[train_spx==0])    
+    u = torch.count_nonzero(obj_label[train_spx==0] + test_spx[train_spx==0])
+    iou = i/u if u>0 else 0.0
+    
+    obj_label[train_spx>0] = 0
+    test_spx[train_spx>0] = 0
+    
+    iiou = 0.0
+    for k in range (1, obj_label.max()+1):
+        ii = torch.count_nonzero((obj_label==k).int() * (test_spx==k).int())
+        uu = torch.count_nonzero((obj_label==k).int() + (test_spx==k).int())
+        iiou = (iiou + ii/uu) if uu>0 else iiou
+    iiou /= k 
+    
+    return iou, iiou, (iou+iiou)/2
+
 def show_intro(config, delay=0.1, size=20):
     print('\n[{}: {}] >\b'.format(config.model, config.experiment_name), end="", flush=True)
     for i in range(size):

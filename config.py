@@ -18,9 +18,8 @@ class DefaultConfig(object):
         self.epoch = 50
         
         self.loss = 'NTXentLoss'
-        self.t_per_anchor = 50 # triplets per anchor for computing loss
+        self.t_per_anchor = 20 # triplets per anchor for computing loss
         self.classifier_optimizer = 'Adam'
-        self.classifier_learning_rate = 1e-4
         
         # Root folder of datasets
         self.data_root = os.path.abspath('../databases')
@@ -35,6 +34,7 @@ class DefaultConfig(object):
         else:
             self.drop_last= False
         
+        self.classifier_learning_rate = 1e-4 #* self.num_devices
         self.num_workers = 2 * self.num_devices
         self.test_times = 5
         self.save_model_times = 5
@@ -54,17 +54,15 @@ class ConfigForMSRA10K(DefaultConfig):
         #self.save_model_path = self.save_model_path + self.current_time
 
         self.epoch = 200
-        self.train_batch_size = 4
-        self.test_batch_size = 4
-        self.train_batch_size *= self.num_devices
-        self.test_batch_size *= self.num_devices
+        self.train_batch_size = self.num_devices * 4
+        self.test_batch_size = self.num_devices * 4
         
         self.train_img_size=(256,256) #(384,384)
         self.val_img_size=(256,256) #(384,384)
         
-        self.num_workers = 16
-        self.test_times = 2000
-        self.save_model_times = 1000000000
+        self.num_workers = self.num_devices * 4
+        self.test_times = 200000000000
+        self.save_model_times = 100000000000
         
         # MSRA paths
         self.msra_root = os.path.join(self.data_root, 'MSRA', 'MSRA10K_Imgs_GT')
@@ -91,10 +89,8 @@ class ConfigForMSRA_B(DefaultConfig):
         #self.save_model_path = self.save_model_path + self.current_time
 
         self.epoch = 200
-        self.train_batch_size = 4
-        self.test_batch_size = 4
-        self.train_batch_size *= self.num_devices
-        self.test_batch_size *= self.num_devices
+        self.train_batch_size = self.num_devices * 4
+        self.test_batch_size = self.num_devices * 4
         
         self.train_img_size=(256,256) #(384,384)
         self.val_img_size=(256,256) #(384,384)
@@ -132,15 +128,14 @@ class ConfigForMSRA_B_sdumont(DefaultConfig):
         #self.save_model_path = self.save_model_path + self.current_time
 
         self.epoch = 200
-        self.train_batch_size = 4
-        self.test_batch_size = 4 
-        self.train_batch_size *= self.num_devices
-        self.test_batch_size *= self.num_devices
+        self.train_batch_size = self.num_devices * 4
+        self.test_batch_size = self.num_devices * 4
+
         
         self.train_img_size=(256,256) #(384,384)
         self.val_img_size=(256,256) #(384,384)
         
-        self.num_workers = 16
+        self.num_workers = self.num_devices * 4
         self.test_times = 2000
         self.save_model_times = 1000000000
         
@@ -202,7 +197,7 @@ def log_config(config):
 def set_config(jup_notebook=False):
     parser = argparse.ArgumentParser(description='My_Net Training') 
     #parser.add_argument("--dataset", type=str, default='MSRA10K')
-    parser.add_argument("--dataset", type=str, default='MSRA_B')
+    parser.add_argument("--dataset", type=str, default='MSRA10K')
     parser.add_argument("--exp", type=str, default='')
     parser.add_argument("--resume_model_path", type=str, default='')
     parser.add_argument('--gpu_id', type=str, default='', help='gpu id')
