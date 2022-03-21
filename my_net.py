@@ -19,13 +19,14 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
     global_ite = 0
     start_epoch = 0
     test_ite = 0
+    top_iou = 0.0
     writer = SummaryWriter(config.save_model_path)
     
     model = launch_cuda(model)
     loss_function = loss_function.cuda()
         
     if config.resume_model_path:
-        model, optimizer, start_epoch, global_ite = load_checkpoint(config, model, optimizer)
+        model, optimizer, start_epoch = load_checkpoint(config, model, optimizer)
 
     for e in range(start_epoch, config.epoch):
         train_loss = AverageMeter()
@@ -47,12 +48,7 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             # pools of superpixels by object
             spx_pools, _ = get_spx_pools(spx, obj_label)
             
-            # feature embedding by superpixel
-            #*spx_emb, = model.spx_embedding(img, spx.float())
-            
-            # make super features from superpixels and embeddings
-            #super_feat = model.super_feat(*spx_emb)
-            
+            # make super features from superpixels and embeddings            
             super_feat = model(img, spx.float())
             
             # if necessary, ungroup and reorganize feat batches from different gpus
@@ -70,24 +66,27 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             #loss_value = loss.cpu().detach().data.numpy()
             train_loss.update(loss.item())
 
-            # test stage
+            # scheduled test
             if global_ite == 1: # % config.test_times == 0:
-                test_ite = test(config, model, test_loader, loss_function, e+1, writer, test_ite)
+                test_ite, _ = test(config, model, test_loader, loss_function, e, writer, test_ite)
             
-            # save model
+            # scheduled checkpoint saving
             if global_ite % config.save_model_times == 0:
                 model_name = '_epoch_'+str(e)+'_it_'+str(global_ite)+'.pth'
                 save_model(config, model, model_name, e, global_ite, optimizer)
             
             # write the summary
             #writer.add_scalar('Train: loss_value', train_loss.val, global_ite)
-            writer.add_scalar('Train: loss_avg', train_loss.avg, global_ite)
-            
+            writer.add_scalar('Train: loss_avg', train_loss.avg, global_ite)            
             t.set_postfix_str('loss: {:^7.3f} (Avg: {:^7.3f})'.format(train_loss.val, train_loss.avg))
             t.update()
-          
-        test_ite = test(config, model, test_loader, loss_function, e+1, writer, test_ite)
-        save_model(config, model, '_last.pth', e, global_ite, optimizer)
+        
+        # test and save at the end of the epoch
+        test_ite, iou = test(config, model, test_loader, loss_function, e+1, writer, test_ite)
+        if iou > top_iou:
+            top_iou = iou
+            save_model(config, model, '_best.pth', e, optimizer)            
+        save_model(config, model, '_last.pth', e, optimizer)
         print("Finished epoch [{}/{}]".format(e+1,config.epoch))
 
 def test(config, model, test_loader, loss_function, epoch, writer, test_ite):
@@ -98,7 +97,7 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite):
         knn_score = AverageMeter()
         iou = AverageMeter()
         iiou = AverageMeter()
-        _2iou_mean = AverageMeter()
+        ag_iou = AverageMeter()
         test_dataiter = iter(test_loader)
         t = tqdm(test_dataiter)        
         knn = KNeighborsClassifier(n_neighbors = config.knn_neighbors)
@@ -131,8 +130,8 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite):
                     knn.fit(x_train,y_train)
                     pred = knn.predict(x_test)            
                     knn_score.update(knn.score(x_test, y_test))
-                    _iou, _iiou, _2iou = iou_metrics(obj_label[b,0].clone(), spx[b,0].clone(), pred, y_train, idx_train, idx_test)
-                    iou.update(_iou), iiou.update(_iiou), _2iou_mean.update(_2iou)
+                    _iou, _iiou, _ag_iou = iou_metrics(obj_label[b,0].clone(), spx[b,0].clone(), pred, y_train, idx_train, idx_test)
+                    iou.update(_iou.item()), iiou.update(_iiou.item()), ag_iou.update(_ag_iou.item())
                 except:
                     skipped_samples += 1
                     continue
@@ -141,15 +140,15 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite):
             writer.add_scalar('Test: knn_score', knn_score.avg, test_ite)
             writer.add_scalar('Test: IoU', iou.avg, test_ite)
             writer.add_scalar('Test: iIoU', iiou.avg, test_ite)
-            writer.add_scalar('Test: Mean(IoU, iIoU)', _2iou_mean.avg, test_ite)
+            writer.add_scalar('Test: Mean(IoU, iIoU)', ag_iou.avg, test_ite)
             
             t.set_postfix_str('loss:{:^7.3f}knn:{:^7.3f}IoU:{:^7.2f}iIoU:{:^7.2f}({:^7.2f})'.format(
-                test_loss.avg, knn_score.avg, iou.avg, iiou.avg, _2iou_mean.avg))
+                test_loss.avg, knn_score.avg, iou.avg, iiou.avg, ag_iou.avg))
             t.update()
     
     print('Knn: {}/{} samples skipped at test.'.format(skipped_samples, i+1))
     
-    return test_ite
+    return test_ite, ag_iou.avg
 
 
 def run(config):

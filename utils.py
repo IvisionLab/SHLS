@@ -4,6 +4,7 @@
 import torch
 import os.path
 import time
+from torch.nn.parallel import DistributedDataParallel as DDP
 #import torch.nn as nn
 #import numpy as np
 
@@ -29,6 +30,15 @@ def launch_cuda(model=None):
         print('CUDA not available, CPU will be used.')
         if model is not None:
             return model
+
+def launch_cuda_ddp(model, rank):
+    global device
+    device=torch.device("cuda:{}".format(rank))
+    if rank == 0:
+        print('CUDA version {} [{} device(s) available].'.format(torch.version.cuda, torch.cuda.device_count()))
+    model = model.to(rank)    
+    model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=True)
+    return model
 
 # simple fix for dataparallel that allows access to class attributes
 class MyDataParallel(torch.nn.DataParallel):
@@ -56,9 +66,8 @@ def load_checkpoint(config, model, optimizer=None):
     state = model.state_dict()
     # load entire saved model from checkpoint
     checkpoint = torch.load(load_name) # dict_keys(['epoch', 'model', 'optimizer'])
-    # set next epoch ant it to resume the training
+    # set next epoch to resume the training
     start_epoch = checkpoint['epoch'] + 1
-    it = checkpoint['it']
     # filter out unnecessary keys from checkpoint
     checkpoint['model'] = {k:v for k,v in checkpoint['model'].items() if k in state}
     # overwrite entries in the existing state dict
@@ -70,11 +79,11 @@ def load_checkpoint(config, model, optimizer=None):
     if optimizer is not None:
         if 'optimizer' in checkpoint.keys():
             optimizer.load_state_dict(checkpoint['optimizer'])
-        return model, optimizer, start_epoch, it
+        return model, optimizer, start_epoch
     
-    return model, start_epoch, it
+    return model, start_epoch
 
-def save_model(config, model, model_name, epoch, it, optimizer=None):
+def save_model(config, model, model_name, epoch, optimizer=None):
     
     if os.path.exists(config.save_model_path) is False:
         os.makedirs(config.save_model_path)
@@ -84,12 +93,10 @@ def save_model(config, model, model_name, epoch, it, optimizer=None):
     if optimizer is not None:    
         torch.save({'model': model.state_dict(), 
                     'optimizer': optimizer.state_dict(),
-                    'epoch': epoch,
-                    'it': it,}, path_)
+                    'epoch': epoch,}, path_)
     else:
         torch.save({'model': model.state_dict(),
-                    'epoch': epoch,
-                    'it': it,}, path_)
+                    'epoch': epoch,}, path_)
     
     print('Model saved in {}'.format(path_))
 
@@ -159,8 +166,8 @@ def spx_info_map(labels):
     return info_map
 
 def iou_metrics(obj_label, spx, pred, y_train, idx_train, idx_test):
-    train_spx = torch.zeros_like(spx)
-    test_spx = torch.zeros_like(spx)
+    train_spx = torch.zeros_like(spx, device=device)
+    test_spx = torch.zeros_like(spx, device=device)
     
     for n, i in enumerate(idx_train):    
         train_spx[spx==i] = y_train[n]
@@ -190,8 +197,6 @@ def show_intro(config, delay=0.1, size=20):
         print('= >\b', end="", flush=True)
         time.sleep(delay)
     print('> [started]')
-    
-
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""

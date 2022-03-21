@@ -90,7 +90,7 @@ class MSRA_dataset(data.Dataset):
         return len(self.img_list)
 
 
-def get_data(config):
+def get_data(config, rank=None, world_size=None):
     train_loader = None
     test_loader = None
     
@@ -101,6 +101,28 @@ def get_data(config):
         test_loader = data.DataLoader(MSRA_dataset(config, imset='test'), batch_size=config.test_batch_size, 
                                        shuffle=True, num_workers=config.num_workers, drop_last=config.drop_last,
                                        pin_memory=True)
+    else:
+        raise RuntimeError('Incorrect dataset name: {}'.format(config.dataset))
+    
+    return train_loader, test_loader
+
+def get_data_ddp(config, rank, world_size):
+    train_loader = None
+    test_loader = None
+    
+    if config.dataset.lower() in ['msra10k', 'msra_b' , 'msra_b_sdumont', 'msra_b_pinha']:
+        from torch.utils.data.distributed import DistributedSampler
+            
+        train_set = MSRA_dataset(config, imset='train')            
+        train_sampler = DistributedSampler(train_set, num_replicas=world_size, rank=rank, shuffle=True, 
+                                           drop_last=config.drop_last)
+        train_loader = data.DataLoader(train_set, batch_size=config.train_batch_size, shuffle=False,
+                                       num_workers=0, drop_last=config.drop_last, pin_memory=False, sampler=train_sampler)
+        test_set = MSRA_dataset(config, imset='test')            
+        test_sampler = DistributedSampler(test_set, num_replicas=world_size, rank=rank, shuffle=True, 
+                                           drop_last=config.drop_last)
+        test_loader = data.DataLoader(test_set, batch_size=config.train_batch_size, shuffle=False,
+                                       num_workers=0, drop_last=config.drop_last, pin_memory=False, sampler=test_sampler)
     else:
         raise RuntimeError('Incorrect dataset name: {}'.format(config.dataset))
     

@@ -34,7 +34,7 @@ class DefaultConfig(object):
         else:
             self.drop_last= False
         
-        self.classifier_learning_rate = 1e-4 #* self.num_devices
+        self.classifier_learning_rate = 1e-4 * self.num_devices
         self.num_workers = 2 * self.num_devices
         self.test_times = 5
         self.save_model_times = 5
@@ -54,8 +54,8 @@ class ConfigForMSRA10K(DefaultConfig):
         #self.save_model_path = self.save_model_path + self.current_time
 
         self.epoch = 200
-        self.train_batch_size = self.num_devices * 4
-        self.test_batch_size = self.num_devices * 4
+        self.train_batch_size = 4# self.num_devices * 4
+        self.test_batch_size = 4#self.num_devices * 4
         
         self.train_img_size=(256,256) #(384,384)
         self.val_img_size=(256,256) #(384,384)
@@ -162,8 +162,6 @@ class ConfigForMSRA_B_sdumont(DefaultConfig):
         
         self.do_augmentation = False
         
-
-
 
 def init(args):
     config = None
