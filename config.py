@@ -18,8 +18,9 @@ class DefaultConfig(object):
         self.epoch = 50
         
         self.loss = 'NTXentLoss'
-        self.t_per_anchor = 20 # triplets per anchor for computing loss
+        self.t_per_anchor = 5 #20 # triplets per anchor for computing loss
         self.classifier_optimizer = 'Adam'
+        self.lr_scheduler = 'plateau'
         
         # Root folder of datasets
         self.data_root = os.path.abspath('../databases')
@@ -116,61 +117,44 @@ class ConfigForMSRA_B(DefaultConfig):
         self.spx_dir = os.path.join(self.msra_root, 'superpixels', 'isec_masks')
         
         self.do_augmentation = True
+        
 
-class ConfigForMSRA_B_sdumont(DefaultConfig):
+class ConfigForDAVIS(DefaultConfig):
     def __init__(self, exp=''):
         DefaultConfig.__init__(self)
 
         self.experiment_name = exp
-        self.model = 'my_net_part2'
+        self.model = 'my_net'
         self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         #self.save_model_path = self.save_model_path + self.current_time
 
-        self.epoch = 200
-        self.train_batch_size = self.num_devices * 4
-        self.test_batch_size = self.num_devices * 4
-
+        self.train_batch_size = 1
+        self.test_batch_size = 1
         
-        self.train_img_size=(256,256) #(384,384)
-        self.val_img_size=(256,256) #(384,384)
+        # DAVIS paths
+        self.davis_root = os.path.join(self.data_root, 'DAVIS2017')
+        self.davis_images = os.path.join(self.davis_root, 'JPEGImages', '480p')
+        self.davis_masks = os.path.join(self.davis_root, 'Annotations', '480p')
         
-        self.num_workers = self.num_devices * 4
-        self.test_times = 2000
-        self.save_model_times = 1000000000
-        
-        self.t_per_anchor = 20 # triplets per anchor for computing loss
-        
-        # Root folder of datasets
-        self.data_root = os.path.abspath('../my_datasets')
-        
-        # MSRA paths
-        self.msra_root = os.path.join(self.data_root, 'MSRA', 'MSRA_B')
-        #self.msra_masks = os.path.join(self.msra_root, 'saliency')
-        self.msra_images = os.path.join(self.msra_root, 'images')
-        
-        self.msra_train_annotation = os.path.join(self.msra_root, 'train_4.5k.txt')
-        self.msra_val_annotation = os.path.join(self.msra_root, 'val_0.5k.txt')
-        #self.msra_val_annotation = os.path.join(self.msra_root, 'val_20.txt')
-        
-        self.saliency_maps = ['03_mc', '04_hs', '05_dsr', '06_rbd', 'jeff_all']
-        self.msra_masks = os.path.join(self.msra_root, 'saliency', self.saliency_maps[4])           
+        self.davis_train_annotation = os.path.join(self.davis_root, 'ImageSets', '2017', 'train.txt')
+        self.davis_val_annotation = os.path.join(self.davis_root, 'ImageSets', '2017', 'val.txt')
         
         # Superpixels
-        self.pre_computed_spx = True
-        self.spx_dir = os.path.join(self.msra_root, 'superpixels', 'isec_masks')
+        self.pre_computed_spx = False
+        self.spx_dir = None
         
-        self.do_augmentation = False
         
 
+################################################
 def init(args):
     config = None
     if args.dataset.lower() == 'msra10k':
         config = ConfigForMSRA10K(args.exp)
     elif args.dataset.lower() == 'msra_b':
         config = ConfigForMSRA_B(args.exp)
-    elif args.dataset.lower() == 'msra_b_sdumont':
-        config = ConfigForMSRA_B_sdumont(args.exp)
+    elif args.dataset.lower() == 'davis':
+        config = ConfigForDAVIS(args.exp)
 
     # append args info into the config
     for k, v in vars(args).items():
@@ -192,10 +176,11 @@ def log_config(config):
             #print('{}: {}'.format(k,v))
     
 
-def set_config(jup_notebook=False):
+def set_config(jup_notebook=False, dataset='MSRA10k'):
     parser = argparse.ArgumentParser(description='My_Net Training') 
-    #parser.add_argument("--dataset", type=str, default='MSRA10K')
+    #parser.add_argument("--dataset", type=str, default='MSRA_B')
     parser.add_argument("--dataset", type=str, default='MSRA10K')
+    #parser.add_argument("--dataset", type=str, default='DAVIS')
     parser.add_argument("--exp", type=str, default='')
     parser.add_argument("--resume_model_path", type=str, default='')
     parser.add_argument('--gpu_id', type=str, default='', help='gpu id')
@@ -205,6 +190,7 @@ def set_config(jup_notebook=False):
         args = parser.parse_args()
     else:
         args = parser.parse_args(args=[])
+        args.dataset = dataset
 
     # select GPU
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"

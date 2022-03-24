@@ -4,7 +4,7 @@
 #import sys
 #sys.path.append('./Data/')
 import torch
-import os.path
+import os
 import numpy as np
 from PIL import Image
 from torch.utils import data
@@ -75,8 +75,7 @@ class MSRA_dataset(data.Dataset):
         else:
             spx_path = os.path.join(self.spx_dir, self.img_list[idx] + ".png")
             spx = np.array(Image.open(spx_path))
-            
-            
+                
         img = torch.from_numpy(img).permute(2,0,1)
         obj_label = torch.from_numpy(obj_label).unsqueeze(0)        
         spx = torch.from_numpy(spx).unsqueeze(0)
@@ -89,18 +88,116 @@ class MSRA_dataset(data.Dataset):
     def __len__(self):
         return len(self.img_list)
 
+##################### DAVIS ######################
+class DAVIS_dataset(data.Dataset):    
+    def __init__(self, config, imset='train'):
+        if not os.path.isdir(config.davis_root):
+            raise RuntimeError('Dataset not found: {}'.format(config.davis_root))
+        
+        self.imset = imset 
+        self.image_dir = config.davis_images
+        self.mask_dir = config.davis_masks        
+        self.pre_computed_spx = config.pre_computed_spx
+        
+        if not self.pre_computed_spx:
+            self.isec = isec(f_order=11, nit=4)
+        else:
+            self.spx_dir = os.path.join(config.spx_dir)
+        
+        self.videos = []
+        self.num_frames = {}
+        self.img_size = {}
+        #self.num_objects = {}        
+        
+        _imset_f = config.davis_train_annotation if imset == 'train' else config.davis_val_annotation        
+        with open(os.path.join(_imset_f), "r") as lines:
+            for line in lines:
+                _video = line.rstrip('\n')
+                self.videos.append(_video)                
+                self.num_frames[_video] = len([x for x in os.listdir(os.path.join(self.image_dir, _video)) if x.endswith(".jpg")])
+                _mask = np.array(Image.open(os.path.join(self.mask_dir, _video, '00000.png')).convert("P"))
+                self.img_size[_video] = np.shape(_mask)
+                #self.num_objects[_video] = np.max(_mask)+1
+    
+    
+    def __getitem__(self, index):
+        video = self.videos[index]
+        info = {}
+        info['name'] = video
+        info['num_frames'] = self.num_frames[video]
+        
+        self.num_frames[video] = 3
+        
+        N_frames = np.empty((self.num_frames[video],)+self.img_size[video]+(3,), dtype=np.float32)
+        N_masks = np.empty((self.num_frames[video],)+self.img_size[video], dtype=np.uint8)
+        N_spxs = np.empty((self.num_frames[video],)+self.img_size[video], dtype=np.int32)
+        for f in range(self.num_frames[video]):
+            img_file = os.path.join(self.image_dir, video, '{:05d}.jpg'.format(f))
+            N_frames[f] = np.array(Image.open(img_file).convert('RGB'))/255.
+            try:
+                mask_file = os.path.join(self.mask_dir, video, '{:05d}.png'.format(f))  
+                N_masks[f] = np.array(Image.open(mask_file).convert('P'), dtype=np.uint8)+1
+            except:
+                N_masks[f] = 255
+            
+            if not self.pre_computed_spx:
+                N_spxs[f], _ = self.isec.segment(N_frames[f])
+            else:
+                spx_path = os.path.join(self.spx_dir, video, '{:05d}.png'.format(f))
+                N_spxs[f] = np.array(Image.open(spx_path))
+        
+        frames = torch.from_numpy(N_frames).permute(0,3,1,2)#.float()
+        masks = torch.from_numpy(N_masks).unsqueeze(1)
+        spxs = torch.from_numpy(N_spxs).unsqueeze(1)
+        #num_objects = torch.LongTensor([int(self.num_objects[video])])
+        
+        return frames, masks, spxs, info        
+        # frames: torch.Size([b, num_frames, 3, w, h])
+        # masks: torch.Size([b, num_frames, 1, w, h])
+        # num_objects:  tensor([[num_objects]])
+        # info:  {'name': ['video_name'], 'num_frames': tensor([num_frames]),
+    
+    def __len__(self):
+        return len(self.videos)
+    
+    def resize_keeping_aspect_ratio(img, max_size=480, enlarge=False):   
+        img_w, img_h = img.shape[0], img.shape[1]
+    
+        if not enlarge and img_w <= max_size and img_h <= max_size:
+            return img
+        
+        if img_w >= img_h:
+            wsize = max_size
+            hsize = int((float(img_h)*float(wsize/float(img_w))))        
+        else:
+            hsize = max_size
+            wsize = int((float(img_w)*float(hsize/float(img_h))))
+            
+        if len(img.shape) > 2 and img.shape[2] > 1:
+            return cv2.resize(img, (hsize,wsize))
+        else:
+            return cv2.resize(img, (hsize,wsize), interpolation=cv2.INTER_NEAREST)
 
+
+   
+##################################################
 def get_data(config, rank=None, world_size=None):
     train_loader = None
     test_loader = None
     
-    if config.dataset.lower() in ['msra10k', 'msra_b' , 'msra_b_sdumont', 'msra_b_pinha']:
+    if config.dataset.lower() in ['msra10k', 'msra_b']:
         train_loader = data.DataLoader(MSRA_dataset(config, imset='train'), batch_size=config.train_batch_size, 
                                        shuffle=True, num_workers=config.num_workers, drop_last=config.drop_last,
                                        pin_memory=True)
         test_loader = data.DataLoader(MSRA_dataset(config, imset='test'), batch_size=config.test_batch_size, 
                                        shuffle=True, num_workers=config.num_workers, drop_last=config.drop_last,
                                        pin_memory=True)
+    
+    elif config.dataset.lower() in ['davis']:
+        train_loader = data.DataLoader(DAVIS_dataset(config, imset='train'), batch_size=config.train_batch_size, 
+                                       shuffle=False, num_workers=0, drop_last=False, pin_memory=True)
+        test_loader = data.DataLoader(DAVIS_dataset(config, imset='test'), batch_size=config.test_batch_size, 
+                                       shuffle=False, num_workers=0, drop_last=False, pin_memory=True)
     else:
         raise RuntimeError('Incorrect dataset name: {}'.format(config.dataset))
     
@@ -110,7 +207,7 @@ def get_data_ddp(config, rank, world_size):
     train_loader = None
     test_loader = None
     
-    if config.dataset.lower() in ['msra10k', 'msra_b' , 'msra_b_sdumont', 'msra_b_pinha']:
+    if config.dataset.lower() in ['msra10k', 'msra_b']:
         from torch.utils.data.distributed import DistributedSampler
             
         train_set = MSRA_dataset(config, imset='train')            

@@ -81,8 +81,9 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
             t.set_postfix_str('loss: {:^7.3f} (Avg: {:^7.3f})'.format(train_loss.val, train_loss.avg))
             t.update()
         
-        # test and save at the end of the epoch
+        # test, update learning rate and save at the end of the epoch
         test_ite, iou = test(config, model, test_loader, loss_function, e+1, writer, test_ite)
+        if lr_scheduler is not None: lr_scheduler.step(iou)
         if iou > top_iou:
             top_iou = iou
             save_model(config, model, '_best.pth', e, optimizer)            

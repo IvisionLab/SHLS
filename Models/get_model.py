@@ -147,20 +147,6 @@ class My_Net(nn.Module):
         
         return super_feat, num_spx
     
-    # def spx_embedding(self, *args, **kwargs):
-    #     return self(*args, **kwargs)
-    
-    # def super_feat(self, *args, **kwargs):
-    #     return self(*args, **kwargs)
-    
-    # def forward(self, *args, **kwargs):        
-    #     if len(args) == 2:
-    #         return self.spx_emb(*args, **kwargs)
-    #     elif len(args) == 4:
-    #         return self.get_super_feat(*args, **kwargs)
-    #     else:
-    #         return None
-    
     def forward(self, img, spx):
         
         # feature embedding by superpixel
@@ -203,5 +189,7 @@ def get_opti_scheduler(config, model,train_loader=None):
         optimizer = torch.optim.Adam(model.parameters(), lr=config.classifier_learning_rate)
     if config.classifier_optimizer == 'SGD':
         optimizer = torch.optim.SGD(model.parameters(), lr=config.classifier_learning_rate, weight_decay=5e-4, momentum=0.9, nesterov=True)
+    if config.lr_scheduler == 'plateau':
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
         
     return optimizer, lr_scheduler

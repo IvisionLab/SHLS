@@ -94,8 +94,9 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
                 t.set_postfix_str('loss: {:^7.3f} (Avg: {:^7.3f})'.format(train_loss.val, train_loss.avg))
                 t.update()
         
-        # test and save at the end of the epoch
+        # test, update learning rate and save at the end of the epoch
         test_ite, iou = test(config, model, test_loader, loss_function, e+1, writer, test_ite, rank, world_size)
+        if lr_scheduler is not None: lr_scheduler.step(iou) 
         if rank == 0:
             if iou > top_iou:
                 top_iou = iou
@@ -189,7 +190,8 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite, ran
                     all_test_loss, all_knn_score, all_iou, all_iiou, all_ag_iou))
                 t.update()
             else:
-                all_ag_iou = 0.0
+                #all_ag_iou = 0.0
+                all_ag_iou = np.mean(ag_iou_outputs)
     
     if rank == 0:
         print('Knn: {}/{} samples skipped at test.'.format(all_skipped_samples, all_i))
