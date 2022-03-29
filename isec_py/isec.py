@@ -25,7 +25,6 @@ class isec():
         self.display = display
         
     def segment(self, img):
-        
         # Get input image dimensions
         M, N, C = img.shape
         segments = np.zeros((M,N), dtype=np.float32)
@@ -83,8 +82,8 @@ class isec():
         segments = area_opening(segments, area_threshold=self.at, connectivity=2)        
         
         # assign labels to segments
-        labels, num = label((1-segments).astype(int), connectivity=1, return_num=True)  
-        labels = remove_borders(labels)        
+        labels, num = label((1-segments).astype(np.int32), connectivity=1, return_num=True)
+        labels = remove_borders(labels.astype(np.int32))
         
         if self.display:
             display_labels = label2rgb(labels, gray_img, bg_label=0)
@@ -116,7 +115,7 @@ def remove_borders(labels):
     # Remove the borders (zero-valued pixels) that separate the segments
     labels3 = np.pad(labels, pad_width=1, mode='reflect')
     M, N = labels3.shape
-    neighs = np.zeros((M-2,N-2,8), dtype=int)
+    neighs = np.zeros((M-2,N-2,8), dtype=np.float32)
     
     neighs[:,:,0] = labels3[0:M-2,0:N-2]
     neighs[:,:,1] = labels3[0:M-2,1:N-1]
@@ -129,7 +128,7 @@ def remove_borders(labels):
     
     newlabels = np.amax(neighs, axis=2).astype(np.float32)
     newlabels = newlabels * (labels==0).astype(np.float32)
-    labels = labels + newlabels.astype(int)
+    labels = labels + newlabels.astype(np.int32)
     
     return labels
 

@@ -74,7 +74,7 @@ class SPX_embedding(nn.Module):
         self.post_convolution = nn.Conv2d(256, 64, 3, 1, 1)
         
         self.deconv = nn.ConvTranspose2d(in_channels=64, out_channels=64, 
-                                         kernel_size=5, stride=4, padding=1, 
+                                         kernel_size=5, stride=4, padding=2, 
                                          output_padding=1, groups=1, bias=True, 
                                          dilation=1)
         self.conv_1x1 = nn.Conv2d(in_channels=71, out_channels=30,
@@ -86,7 +86,7 @@ class SPX_embedding(nn.Module):
         res_feat = self.post_convolution(res_feat)
         
         # normal size feats
-        deconv_feat = self.deconv(res_feat)        
+        deconv_feat = self.deconv(res_feat, output_size=(img.shape[2], img.shape[3]))        
         info_map = spx_info_map(spx)
         feat = torch.cat((deconv_feat, img, spx, info_map),1)
         feat = self.conv_1x1(feat)

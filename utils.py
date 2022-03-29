@@ -165,6 +165,47 @@ def spx_info_map(labels):
             
     return info_map
 
+def merge_spx_label(spx, obj_label, spx2label=None):
+    
+    if spx2label is None:
+        spx2label = obj_label.clone()
+    
+    num_spx = spx.max().item()
+    output = torch.zeros_like(spx, device=device)
+    
+    for i in range(1, obj_label.max()+1):        
+        n_spx = spx.clone()
+        n_spx[spx2label != i] = 0
+        
+        n_obj_label = obj_label.clone() + num_spx
+        n_obj_label[obj_label != i] = 0
+        
+        r_spx = n_spx + n_obj_label        
+        x_spx = r_spx.clone()        
+        x_spx[r_spx != num_spx+i] = 0
+        r_spx = r_spx - num_spx - i
+        r_spx[obj_label != i] = 0
+        r_spx[x_spx == num_spx+i] = 0
+        r_spx = r_spx + x_spx
+        
+        output = output + r_spx
+        
+    # reorder spx labels
+    all_labels = torch.tensor(range(1, output.max()+1))
+    present_labels = all_labels.clone().apply_(lambda x: x in output)    
+    gap = 0
+    cor = 0
+    for i, k in enumerate(all_labels):            
+        if present_labels[i] == 0:
+            gap += 1
+            cor += 1
+        else:
+            output[output>=k-cor] -= gap
+            gap = 0
+    
+    return output
+
+
 def iou_metrics(obj_label, spx, pred, y_train, idx_train, idx_test):
     train_spx = torch.zeros_like(spx, device=device)
     test_spx = torch.zeros_like(spx, device=device)

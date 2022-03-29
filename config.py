@@ -128,9 +128,16 @@ class ConfigForDAVIS(DefaultConfig):
         self.save_model_path = os.path.join('./saved_models/', self.experiment_name)
         self.current_time = time.strftime("%Y-%m-%d_%H_%M", time.localtime())
         #self.save_model_path = self.save_model_path + self.current_time
+        
+        self.epoch = 200
+        self.train_batch_size = 1# self.num_devices * 4
+        self.test_batch_size = 1#self.num_devices * 4
+        
+        self.num_workers = self.num_devices * 4
+        self.test_times = 200000000000
+        self.save_model_times = 100000000000
 
-        self.train_batch_size = 1
-        self.test_batch_size = 1
+        self.max_img_side = 480 # bigger image side ('None' preserves original size)
         
         # DAVIS paths
         self.davis_root = os.path.join(self.data_root, 'DAVIS2017')
@@ -144,6 +151,7 @@ class ConfigForDAVIS(DefaultConfig):
         self.pre_computed_spx = False
         self.spx_dir = None
         
+        self.do_augmentation = True
         
 
 ################################################
