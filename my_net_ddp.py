@@ -9,8 +9,8 @@ from sklearn.model_selection import train_test_split
 from tensorboardX import SummaryWriter
 from config import set_config
 import Data.get_data as _Data
-import Models.get_model as _Models
-from Models.get_model import compute_loss
+import Models.get_model_3 as _Models
+from Models.get_model_3 import compute_loss
 from utils import launch_cuda_ddp, get_spx_pools, AverageMeter, iou_metrics 
 from utils import load_checkpoint, save_model, ungroup_batches, show_intro
 import torch.distributed as dist
@@ -23,11 +23,11 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
     test_ite = 0
     top_iou = 0.0
     
-    model = launch_cuda_ddp(model, rank)
-    loss_function = loss_function.cuda(rank)
-        
     if config.resume_model_path:
-        model, optimizer, start_epoch = load_checkpoint(config, model, optimizer)
+        model, optimizer, start_epoch, top_iou, global_ite, test_ite = load_checkpoint(config, model, optimizer, rank, train=True)
+    
+    model, optimizer = launch_cuda_ddp(model, rank, optimizer)
+    loss_function = loss_function.cuda(rank)
         
     if rank == 0:
         writer = SummaryWriter(config.save_model_path)
@@ -79,13 +79,8 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
                     train_loss.update(l)
 
             # scheduled test
-            if global_ite == 1: # % config.test_times == 0:
+            if config.early_test and global_ite == 1: # % config.test_times == 0:
                 test_ite, _ = test(config, model, test_loader, loss_function, e, writer, test_ite, rank, world_size)
-            
-            # scheduled checkpoint saving
-            if global_ite % config.save_model_times == 0:
-                model_name = '_epoch_'+str(e)+'_it_'+str(global_ite)+'.pth'
-                save_model(config, model, model_name, e, global_ite, optimizer)
             
             # write the summary
             if rank == 0:
@@ -100,8 +95,8 @@ def train(config, model, train_loader, test_loader, loss_function, optimizer, lr
         if rank == 0:
             if iou > top_iou:
                 top_iou = iou
-                save_model(config, model, '_best.pth', e, optimizer)
-            save_model(config, model, '_last.pth', e, optimizer)
+                save_model(config, model, '_best.pth', e, optimizer, top_iou, global_ite, test_ite)
+            save_model(config, model, '_last.pth', e, optimizer, top_iou, global_ite, test_ite)
             print("Finished epoch [{}/{}]".format(e+1,config.epoch))
 
 def test(config, model, test_loader, loss_function, epoch, writer, test_ite, rank=None, world_size=None):
@@ -111,8 +106,6 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite, ran
         test_loss = AverageMeter()
         knn_score = AverageMeter()
         iou = AverageMeter()
-        iiou = AverageMeter()
-        ag_iou = AverageMeter()
         knn = KNeighborsClassifier(n_neighbors = config.knn_neighbors)
         skipped_samples = 0
         
@@ -149,8 +142,8 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite, ran
                     knn.fit(x_train,y_train)
                     pred = knn.predict(x_test)            
                     knn_score.update(knn.score(x_test, y_test))
-                    _iou, _iiou, _ag_iou = iou_metrics(obj_label[b,0].clone(), spx[b,0].clone(), pred, y_train, idx_train, idx_test)
-                    iou.update(_iou.item()), iiou.update(_iiou.item()), ag_iou.update(_ag_iou.item())
+                    _iou = iou_metrics(obj_label[b,0].clone(), spx[b,0].clone(), pred, y_train, idx_train, idx_test)
+                    iou.update(_iou.item())
                 except:
                     skipped_samples += 1
                     continue
@@ -158,16 +151,12 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite, ran
             loss_outputs = [None for _ in range(world_size)]
             knn_outputs = [None for _ in range(world_size)]
             iou_outputs = [None for _ in range(world_size)]
-            iiou_outputs = [None for _ in range(world_size)]
-            ag_iou_outputs = [None for _ in range(world_size)]
             skipped_samples_outputs = [None for _ in range(world_size)]
             i_outputs = [None for _ in range(world_size)]
             
             dist.all_gather_object(loss_outputs, test_loss.avg)
             dist.all_gather_object(knn_outputs, knn_score.avg)
             dist.all_gather_object(iou_outputs, iou.avg)
-            dist.all_gather_object(iiou_outputs, iiou.avg)
-            dist.all_gather_object(ag_iou_outputs,  ag_iou.avg)
             dist.all_gather_object(skipped_samples_outputs, skipped_samples)
             dist.all_gather_object(i_outputs, i+1)
             
@@ -175,28 +164,23 @@ def test(config, model, test_loader, loss_function, epoch, writer, test_ite, ran
                 all_test_loss = np.mean(loss_outputs)
                 all_knn_score = np.mean(knn_outputs)
                 all_iou = np.mean(iou_outputs)
-                all_iiou = np.mean(iiou_outputs)
-                all_ag_iou = np.mean(ag_iou_outputs)
                 all_skipped_samples = np.sum(skipped_samples_outputs)
                 all_i = np.sum(i_outputs)                
             
                 writer.add_scalar('Test: loss_avg', all_test_loss, test_ite)
                 writer.add_scalar('Test: knn_score', all_knn_score, test_ite)
                 writer.add_scalar('Test: IoU', all_iou, test_ite)
-                writer.add_scalar('Test: iIoU', all_iiou, test_ite)
-                writer.add_scalar('Test: Mean(IoU, iIoU)', all_ag_iou, test_ite)
                 
-                t.set_postfix_str('loss:{:^7.3f}knn:{:^7.3f}IoU:{:^7.2f}iIoU:{:^7.2f}({:^7.2f})'.format(
-                    all_test_loss, all_knn_score, all_iou, all_iiou, all_ag_iou))
+                t.set_postfix_str('loss:{:^7.3f}knn:{:^7.3f}IoU:{:^7.3f}'.format(
+                    all_test_loss, all_knn_score, all_iou))
                 t.update()
             else:
-                #all_ag_iou = 0.0
-                all_ag_iou = np.mean(ag_iou_outputs)
+                all_iou = np.mean(iou_outputs)
     
     if rank == 0:
         print('Knn: {}/{} samples skipped at test.'.format(all_skipped_samples, all_i))
     
-    return test_ite, all_ag_iou
+    return test_ite, all_iou
 
 
 def run(rank, config):

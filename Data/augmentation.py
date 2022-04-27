@@ -42,7 +42,7 @@ class Data_Augmentation():
             img_path = os.path.join(self.image_dir, rand_img + ".jpg")        
             mask_path = os.path.join(self.mask_dir, rand_img + ".png") 
             
-            img = np.array(Image.open(img_path).convert('RGB'))            
+            img = np.array(Image.open(img_path).convert('RGB'), dtype="float32")/255.            
             mask = (np.array(Image.open(mask_path).convert('P')) > 0).astype(np.uint8)
             
             #img = cv2.resize(np.copy(img), (w,h))

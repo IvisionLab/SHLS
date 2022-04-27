@@ -13,7 +13,7 @@ from skimage.measure import label
 from isec_py.isec import isec, shell_kernel, remove_borders
 from Data.augmentation import Data_Augmentation, remove_small_objcts
 from Data.aug_davis import aug_heavy
-
+from utils import reoerder_labels
    
 ##################### MSRA #######################
 class MSRA_dataset(data.Dataset):    
@@ -51,25 +51,26 @@ class MSRA_dataset(data.Dataset):
         if self.do_augmentation:
             self.augmentation = Data_Augmentation(config, self.img_list)
     
-    def __getitem__(self, idx):        
+    def __getitem__(self, idx):
+        info = {}
+        info['name'] = self.img_list[idx]
+        
         img_path = os.path.join(self.image_dir, self.img_list[idx] + ".jpg")        
         mask_path = os.path.join(self.mask_dir, self.img_list[idx] + ".png")
         
-        img = np.array(Image.open(img_path).convert('RGB'))
+        img = np.array(Image.open(img_path).convert('RGB'), dtype="float32")/255.
         mask = (np.array(Image.open(mask_path).convert('P')) > 0).astype(np.uint8)
         
         img = cv2.resize(np.copy(img), self.img_size)
         mask = cv2.resize(np.copy(mask), self.img_size, interpolation=cv2.INTER_NEAREST)
-           
+        
         obj_contour, obj_kernel = shell_kernel(mask)
-        #obj_contour, _ = shell_kernel(obj_kernel)
-        obj_label = remove_borders(label((1-obj_contour).astype(np.int32), connectivity=1, return_num=False))
+        obj_label = remove_borders(label((1-obj_contour).astype(np.int32), connectivity=1, return_num=False)).astype(np.int32)
         
         if self.do_augmentation:
             img, obj_label, num_obj = self.augmentation.insert_random_objects(img, obj_label, idx=idx)
         else:
             obj_label, num_obj = remove_small_objcts(obj_label)
-                                                                
         
         if not self.pre_computed_spx:
             spx, _ = self.isec.segment(img)
@@ -78,12 +79,9 @@ class MSRA_dataset(data.Dataset):
             spx = np.array(Image.open(spx_path))
                 
         img = torch.from_numpy(img).permute(2,0,1)
-        obj_label = torch.from_numpy(obj_label).unsqueeze(0)        
+        obj_label = reoerder_labels(torch.from_numpy(obj_label)).unsqueeze(0)        
         spx = torch.from_numpy(spx).unsqueeze(0)
          
-        info = {}
-        info['name'] = self.img_list[idx]
-        
         return img, spx, obj_label, num_obj, info
 
     def __len__(self):
@@ -119,13 +117,15 @@ class DAVIS_dataset(data.Dataset):
                     if f.endswith(".jpg"):
                         self.frames[idx] = ('{:05d}'.format(f_num), _video)
                         idx += 1
+                    #if imset != 'train' and f_num > 9:
+                    #    break
                 self.num_frames[_video] = f_num + 1
        
         if self.do_augmentation:
-            self.augmentation = aug_heavy()
+            self.augmentation = aug_heavy(self.max_img_side)
     
     def __getitem__(self, index):
-        #index += 69+250
+        #index += 69#+50+80+84+90+75+40+104+90+60+66+52
         video = self.frames[index][1]
         info = {}
         info['name'] = video
@@ -135,15 +135,15 @@ class DAVIS_dataset(data.Dataset):
         img_path = os.path.join(self.image_dir, video, self.frames[index][0] + '.jpg')
         mask_path = os.path.join(self.mask_dir, video, self.frames[index][0] + '.png') 
         
-        img = np.array(Image.open(img_path).convert('RGB'))#/255.
+        img = np.array(Image.open(img_path).convert('RGB'), dtype="float32")/255.
         mask = np.array(Image.open(mask_path).convert('P'), dtype=np.uint8)
-        
+       
         if self.do_augmentation:
             frame_list, mask_list = self.augmentation([img],[mask])            
             img = frame_list[0]
             mask = mask_list[0]
         else:
-            img = self.resize_keeping_aspect_ratio(img/255., max_size=self.max_img_side)
+            img = self.resize_keeping_aspect_ratio(img, max_size=self.max_img_side)
             mask = self.resize_keeping_aspect_ratio(mask, max_size=self.max_img_side)
         
         obj_label = (mask + 1).astype(np.int32) # first label (background) set to 1
@@ -154,9 +154,9 @@ class DAVIS_dataset(data.Dataset):
         else:
             spx_path = os.path.join(self.spx_dir, video, self.frames[index][0] + '.png')
             spx = np.array(Image.open(spx_path))
-
+        
         img = torch.from_numpy(img).permute(2,0,1)
-        obj_label = torch.from_numpy(obj_label).unsqueeze(0)        
+        obj_label = reoerder_labels(torch.from_numpy(obj_label)).unsqueeze(0)        
         spx = torch.from_numpy(spx).unsqueeze(0)
         
         return img, spx, obj_label, num_obj, info
@@ -207,7 +207,7 @@ def get_data(config, rank=None, world_size=None):
                                        shuffle=True, num_workers=config.num_workers, drop_last=config.drop_last,
                                        pin_memory=True)
         test_loader = data.DataLoader(test_set, batch_size=config.test_batch_size, 
-                                       shuffle=True, num_workers=config.num_workers, drop_last=config.drop_last,
+                                       shuffle=False, num_workers=config.num_workers, drop_last=config.drop_last,
                                        pin_memory=True)
     else:
         raise RuntimeError('Incorrect dataset name: {}'.format(config.dataset))

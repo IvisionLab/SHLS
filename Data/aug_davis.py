@@ -25,7 +25,7 @@ class RandomSizedCrop(object):
         
         for i in range(len(images)): 
             h, w = labels[i].shape
-            h, w = (max(384,int(h * scale_factor)), max(384,int(w * scale_factor)))
+            h, w = (max(self.crop_size,int(h * scale_factor)), max(self.crop_size,int(w * scale_factor)))
             images[i] = (cv2.resize(images[i], (w, h), interpolation=cv2.INTER_LINEAR))
             labels[i] = Image.fromarray(labels[i]).resize((w, h), resample=Image.NEAREST)
             labels[i] = np.asarray(labels[i], dtype=np.int8)
@@ -42,39 +42,40 @@ class RandomSizedCrop(object):
         y_min = box[1]
         y_max = box[1] + box[3]
 
-        if x_max - x_min >384:
-            start_w = random.randint(x_min,x_max - 384)
-        elif x_max - x_min == 384:
+        if x_max - x_min >self.crop_size:
+            start_w = random.randint(x_min,x_max - self.crop_size)
+        elif x_max - x_min == self.crop_size:
             start_w = x_min
         else:
-            start_w = random.randint(max(0,x_max-384), min(x_min,w - 384))
+            start_w = random.randint(max(0,x_max-self.crop_size), min(x_min,w - self.crop_size))
 
-        if y_max - y_min >384:
-            start_h = random.randint(y_min,y_max - 384)
-        elif y_max - y_min == 384:
+        if y_max - y_min >self.crop_size:
+            start_h = random.randint(y_min,y_max - self.crop_size)
+        elif y_max - y_min == self.crop_size:
             start_h = y_min
         else:
-            start_h = random.randint(max(0,y_max-384), min(y_min,h - 384))
+            start_h = random.randint(max(0,y_max-self.crop_size), min(y_min,h - self.crop_size))
         # Cropping
 
-        end_h = start_h + 384
-        end_w = start_w + 384
+        end_h = start_h + self.crop_size
+        end_w = start_w + self.crop_size
         for i in range(len(images)):
             start_h = random.randint(start_h-20,start_h+20)
             start_h = max(0,start_h)
-            start_h = min(h - 384,start_h)
+            start_h = min(h - self.crop_size,start_h)
             start_w = random.randint(start_w-20,start_w+20)
             start_w = max(0,start_w)
-            start_w = min(w - 384,start_w)
-            end_h = start_h + 384
-            end_w = start_w + 384
-            images[i] = images[i][start_h:end_h, start_w:end_w]/255.
-            labels[i] = labels[i][start_h:end_h, start_w:end_w]
+            start_w = min(w - self.crop_size,start_w)
+            end_h = start_h + self.crop_size
+            end_w = start_w + self.crop_size
+            images[i] = images[i][start_h:end_h, start_w:end_w]#/255.
+            labels[i] = labels[i][start_h:end_h, start_w:end_w]           
+            
         return images,labels
 
 
 class aug_heavy(object):
-    def __init__(self):
+    def __init__(self, crop_size=384):
         self.affinity = iaa.Sequential([
             iaa.Sometimes(
                 0.5,
@@ -94,12 +95,13 @@ class aug_heavy(object):
             ),   
             ], random_order=True)
 
-        self.crop = RandomSizedCrop([0.80,1.1],384)
+        self.crop = RandomSizedCrop([0.80,1.1], crop_size)
         self.flip = Flip(0.5)
     def __call__(self,images,labels):
-        images,labels = self.flip(images,labels)
+        images,labels = self.flip(images,labels)        
         for i in range(len(images)):
             images[i],labels[i] = self.affinity(image = images[i],segmentation_maps = labels[i][np.newaxis,:,:,np.newaxis])
-            labels[i] = labels[i][0,:,:,0]
+            labels[i] = labels[i][0,:,:,0]        
         images,labels = self.crop(images,labels)
+        
         return images,labels
