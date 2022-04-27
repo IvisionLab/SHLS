@@ -58,13 +58,13 @@ class ResNet18(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out_l1 = self.conv1(x)
-        out_l1 = self.layer1(out_l1)
-        out_l4 = self.layer2(out_l1)
-        out_l4 = self.layer3(out_l4)
-        out_l4 = self.layer4(out_l4)
+        out_L1 = self.conv1(x)
+        out_L1 = self.layer1(out_L1)
+        out_L4 = self.layer2(out_L1)
+        out_L4 = self.layer3(out_L4)
+        out_L4 = self.layer4(out_L4)
         
-        return out_l4, out_l1
+        return out_L4, out_L1
 
 class SPX_embedding(nn.Module):
     def __init__(self, config, in_ch=3):
@@ -87,21 +87,21 @@ class SPX_embedding(nn.Module):
                                       nn.BatchNorm2d(config.sf_channels),nn.ReLU())
     
     def forward(self, img, spx):
-        res_feat_l4, res_feat_l1 = self.feat_extractor(img) # l4=[b,256,w/4,h/4], l1=[b,64,w/2,h/2]
-        res_feat_l4 = self.post_convolution(res_feat_l4)
+        res_feat_L4, res_feat_L1 = self.feat_extractor(img) # L4=[b,256,w/4,h/4], L1=[b,64,w/2,h/2]
+        res_feat_L4 = self.post_convolution(res_feat_L4)
         
         # (w, h) sized feats
-        deconv_feat = self.deconv_part1(res_feat_l1, output_size=(img.shape[2], img.shape[3]))
+        deconv_feat = self.deconv_part1(res_feat_L1, output_size=(img.shape[2], img.shape[3]))
         deconv_feat = self.deconv_part2(deconv_feat)
         info_map = spx_info_map(spx)
         feat = torch.cat((deconv_feat, info_map),1)
         feat = self.conv_1x1(feat)
                 
         # (w/4, h/4) sized feats
-        _, _, w, h = res_feat_l4.shape
+        _, _, w, h = res_feat_L4.shape
         small_spx = F.interpolate(spx, (w, h), mode='nearest')
         small_info_map = spx_info_map(small_spx)
-        small_feat = torch.cat((res_feat_l4, small_info_map),1)
+        small_feat = torch.cat((res_feat_L4, small_info_map),1)
         small_feat = self.conv_1x1(small_feat)
         
         return feat, spx, small_feat, small_spx
@@ -179,7 +179,6 @@ class My_Net(nn.Module):
                 for i in range(c):
                     all_idx = torch.cat((all_idx, idx+(pop_size*i)))
                 
-                # torch take suspeito
                 x = torch.take(pop, all_idx)
                 x = self.sf_conv1d(x.view(1,1,-1))
                 super_feat[n] = x                
