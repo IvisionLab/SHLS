@@ -96,7 +96,7 @@ class aug_heavy(object):
             ], random_order=True)
 
         self.crop = RandomSizedCrop([0.80,1.1], crop_size)
-        self.flip = Flip(0.5)
+        self.flip = Flip(0)
     def __call__(self,images,labels):
         images,labels = self.flip(images,labels)        
         for i in range(len(images)):

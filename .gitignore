@@ -15,6 +15,26 @@ links.txt
 .ipynb_checkpoints
 README.md
 rsync-exclude.txt
+links.txt
+my_net_eval_YT.py
+my_nt_LT.py
+my_net_vid_LT.py
+out.txt
+overlay.py
+yt_check.py
+yt_check2.py
+all_frame_paths.pt
+all_mask_paths.pt
+/Data/videos/
+/Data/augmentation_bkp_h_w.py
+/Data/augmentation_c.py
+/Data/eval_sampler.py
+/Data/make_videos.py
+/Data/precomp_spx.py
+notebooks
+
+
+
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
