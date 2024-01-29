@@ -38,4 +38,4 @@ Folder structure:
         - JPEGImages
 
 Citation:
-   MENDONÇA, M.; FONTINELE, J.; OLIVEIRA, L. SHLS: Superfeatures learned from still images for self-supervised VOS. In: British Machine Vision Conference (BMVC), 2023. In: http://proceedings.bmvc2023.org/523/
+   - MENDONÇA, M.; FONTINELE, J.; OLIVEIRA, L. SHLS: Superfeatures learned from still images for self-supervised VOS. In: British Machine Vision Conference (BMVC), 2023. In: http://proceedings.bmvc2023.org/523/
