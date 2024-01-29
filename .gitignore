@@ -17,7 +17,7 @@ README.md
 rsync-exclude.txt
 links.txt
 my_net_eval_YT.py
-my_nt_LT.py
+my_net_LT.py
 my_net_vid_LT.py
 out.txt
 overlay.py
@@ -31,7 +31,7 @@ all_mask_paths.pt
 /Data/eval_sampler.py
 /Data/make_videos.py
 /Data/precomp_spx.py
-notebooks
+/notebooks
 
 
 
