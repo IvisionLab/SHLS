@@ -3,14 +3,14 @@
 BMVC 2023 paper and materials: https://bmvc2023.cvml.group/proceedings/
 
 Concept:
-![latent_space](https://github.com/marcelo-mendonca/SHLS/assets/38759879/43dcc424-1cfb-4d7b-915e-385b5e569be4)
+![latent_space](images/concept.png)
 
 Superfeatures:
-![superfeature](https://github.com/marcelo-mendonca/SHLS/assets/38759879/6ff0e924-801a-4951-aee4-28ed5d6fc7da)
+![superfeature](images/superfeatures.png)
 
 
 Framework:
-![complete_model](https://github.com/marcelo-mendonca/SHLS/assets/38759879/b79ac068-2ad9-475e-bf12-fad186fc10d1)
+![complete_model](images/framework.png)
 
 
 Requirements:
