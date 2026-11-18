@@ -1,6 +1,6 @@
 # SHLS: Superfeatures learned from still images for self-supervised VOS
 
-BMVC 2023 paper and materials: http://proceedings.bmvc2023.org/523/
+BMVC 2023 paper and materials: https://bmvc2023.cvml.group/proceedings/
 
 Concept:
 ![latent_space](https://github.com/marcelo-mendonca/SHLS/assets/38759879/43dcc424-1cfb-4d7b-915e-385b5e569be4)
@@ -38,4 +38,4 @@ Folder structure:
         - JPEGImages
 
 Citation:
-   - MENDONÇA, M.; FONTINELE, J.; OLIVEIRA, L. SHLS: Superfeatures learned from still images for self-supervised VOS. In: British Machine Vision Conference (BMVC), 2023. In: http://proceedings.bmvc2023.org/523/
+   - MENDONÇA, M.; FONTINELE, J.; OLIVEIRA, L. SHLS: Superfeatures learned from still images for self-supervised VOS. In: British Machine Vision Conference (BMVC), 2023. In: https://papers.bmvc2023.cvml.group/0523.pdf
